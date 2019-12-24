@@ -25,7 +25,7 @@ class GUI:
     def draw_graph(self):
         for s in self.nodes:
             for t in s.targets:
-                self.canvas.create_line(s.vec.x, s.vec.y, t.vec.x, t.vec.y)
+                self.canvas.create_line(s.vec.x, s.vec.y, t[1].vec.x, t[1].vec.y)
         for n in self.nodes:
             self.draw_node(n.vec.x, n.vec.y, n.label)
 
@@ -54,10 +54,12 @@ class Node:
         self.targets = []
         self.vec = Vec(0, 0)
 
-    def edge(self, *nodes):
+    def edge(self, weights, *nodes ):
         for n in nodes:
-            self.targets.append(n)
-            n.targets.append(self)
+            self.targets.append((weights,n))
+            
+            n.targets.append((weights,self))
+
         return self
 
     
@@ -66,6 +68,7 @@ class Node:
 class Graph:
     def __init__(self):
         self.nodes = []
+        self.adjacency_mx = []
 
     def read(self, file):
         f = open(file, 'r')
@@ -84,18 +87,40 @@ class Graph:
                 #scroll through the info
                 if nd.label == ninf[0]:
                     #found info about the node
-                    for nd_edge in ninf[1]:
+                    #process targets correctly
+                    trgts = []
+                    for trgt in ninf[1]:
+                        trgts.append(trgt.split('*'))
+                    for nd_edge in trgts:
                         #scroll through the targets
                         for nd_tar in self.nodes:
                             #find instances of targets
-                            if nd_tar.label == nd_edge:
-                                nd.edge(nd_tar) 
+                            if nd_tar.label == nd_edge[0]:
+                                nd.edge(nd_edge[1],nd_tar) 
+        self.adjacency_mx_gen()
 
             
 
     def node(self, label):
         self.nodes.append(Node(label))
         return self.nodes[-1]
+    
+    def adjacency_mx_gen(self):
+        for nd in self.nodes: #main traverse
+            ad_mx_row = []
+            for nd_ in self.nodes: #for each node go through nodes again
+                flag = True
+                for trgt in nd.targets: #for each 2-nd layer node find out if it`s a target
+                    if nd_.label == trgt[1].label:
+                        ad_mx_row.append(int(trgt[0]))
+                        flag = False
+                if flag :
+                    ad_mx_row.append(0)
+
+                        
+            self.adjacency_mx.append([ad_mx_row])
+
+
 
 
 class Vec:
@@ -120,7 +145,7 @@ class Vec:
         return Vec(self.x / m, self.y / m) if m else Vec(0, 0)
 
 
-C1, C2, C3, C4 = 2, 100, 20000, 0.0005
+C1, C2, C3, C4 = 2, 100, 20000, 0.001
 
 
 def spring(v1, v2):
@@ -130,7 +155,7 @@ def spring(v1, v2):
     force_vec = Vec (force_vec.x, force_vec.y) 
     #node has mass
     #eval
-    if (force_vec.mag()>=200) :
+    if (force_vec.mag()>=100) :
         return(Vec(-force_vec.x, -force_vec.y))
     else : return(force_vec)
 
@@ -138,7 +163,7 @@ def spring(v1, v2):
 def ball(v1, v2):
     force_vec = (v1-v2)
 
-    return(force_vec*math.floor(400/force_vec.mag()-1))
+    return(force_vec*(400/force_vec.mag()-1))
 
 
 def force_layout(nodes):
@@ -146,9 +171,10 @@ def force_layout(nodes):
     for n in nodes:
         forces[n] = Vec(0, 0)
         for t in n.targets:
-            forces[n] += spring(n.vec,t.vec)
+            forces[n] += spring(n.vec,t[1].vec)
         for nod in nodes:
-            if nod is not n.targets:
+
+            #if nod is not n.targets[1]:
                 if nod is not n:
                     forces[n] += ball(n.vec,nod.vec)
                     
@@ -161,7 +187,7 @@ def force_layout(nodes):
 #main code
 
 g = Graph()
-g.read("graph.txt")
+g.read("graph-3.txt")
 g.nodes
 root = tk.Tk();
 
